@@ -24,9 +24,6 @@ interface UserProfile {
   email: string;
   image?: string;
   role: string;
-  bio?: string;
-  location?: string;
-  website?: string;
   createdAt: string;
   _count: {
     posts: number;
@@ -44,9 +41,6 @@ export default function ProfilePage() {
   const [editing, setEditing] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
-    bio: "",
-    location: "",
-    website: "",
   });
 
   const isOwnProfile = session?.user?.id === id;
@@ -65,9 +59,6 @@ export default function ProfilePage() {
         setProfile(data);
         setFormData({
           name: data.name || "",
-          bio: data.bio || "",
-          location: data.location || "",
-          website: data.website || "",
         });
       }
     } catch (error) {

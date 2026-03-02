@@ -6,11 +6,12 @@ import { prisma } from "@/lib/db";
 // GET /api/threads/[id] - Get single thread
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const thread = await prisma.thread.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         author: {
           select: { id: true, name: true, image: true, role: true },
@@ -50,16 +51,17 @@ export async function GET(
 // PUT /api/threads/[id] - Update thread
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const session = await getServerSession(authOptions);
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const thread = await prisma.thread.findUnique({
-      where: { id: params.id },
+      where: { id },
       select: { authorId: true },
     });
 
@@ -90,7 +92,7 @@ export async function PUT(
     if (slug) updateData.slug = slug;
 
     const updatedThread = await prisma.thread.update({
-      where: { id: params.id },
+      where: { id },
       data: updateData,
       include: {
         author: {
@@ -113,16 +115,17 @@ export async function PUT(
 // DELETE /api/threads/[id] - Delete thread
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const session = await getServerSession(authOptions);
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const thread = await prisma.thread.findUnique({
-      where: { id: params.id },
+      where: { id },
       select: { authorId: true },
     });
 
@@ -136,7 +139,7 @@ export async function DELETE(
     }
 
     await prisma.thread.delete({
-      where: { id: params.id },
+      where: { id },
     });
 
     return NextResponse.json({ message: "Thread deleted successfully" });

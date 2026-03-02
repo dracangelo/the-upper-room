@@ -6,11 +6,12 @@ import { prisma } from "@/lib/db";
 // GET /api/prayers/[id] - Get single prayer request
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const prayer = await prisma.prayerRequest.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         author: {
           select: { id: true, name: true, image: true, role: true },
@@ -41,9 +42,10 @@ export async function GET(
 // POST /api/prayers/[id]/pray - User prays for this request
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const session = await getServerSession(authOptions);
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -54,7 +56,7 @@ export async function POST(
       where: {
         userId_prayerRequestId: {
           userId: session.user.id,
-          prayerRequestId: params.id,
+          prayerRequestId: id,
         },
       },
     });
@@ -67,7 +69,7 @@ export async function POST(
 
       // Update count
       const updated = await prisma.prayerRequest.update({
-        where: { id: params.id },
+        where: { id },
         data: { prayerCount: { decrement: 1 } },
         include: {
           _count: { select: { prayers: true } },
@@ -80,13 +82,13 @@ export async function POST(
       await prisma.prayer.create({
         data: {
           userId: session.user.id,
-          prayerRequestId: params.id,
+          prayerRequestId: id,
         },
       });
 
       // Update count
       const updated = await prisma.prayerRequest.update({
-        where: { id: params.id },
+        where: { id },
         data: { prayerCount: { increment: 1 } },
         include: {
           _count: { select: { prayers: true } },
@@ -107,16 +109,17 @@ export async function POST(
 // PUT /api/prayers/[id] - Update prayer request
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const session = await getServerSession(authOptions);
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const prayer = await prisma.prayerRequest.findUnique({
-      where: { id: params.id },
+      where: { id },
       select: { authorId: true },
     });
 
@@ -139,7 +142,7 @@ export async function PUT(
     if (isAnonymous !== undefined) updateData.isAnonymous = isAnonymous;
 
     const updatedPrayer = await prisma.prayerRequest.update({
-      where: { id: params.id },
+      where: { id },
       data: updateData,
       include: {
         author: {
@@ -162,16 +165,17 @@ export async function PUT(
 // DELETE /api/prayers/[id] - Delete prayer request
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const session = await getServerSession(authOptions);
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const prayer = await prisma.prayerRequest.findUnique({
-      where: { id: params.id },
+      where: { id },
       select: { authorId: true },
     });
 
@@ -185,7 +189,7 @@ export async function DELETE(
     }
 
     await prisma.prayerRequest.delete({
-      where: { id: params.id },
+      where: { id },
     });
 
     return NextResponse.json({ message: "Prayer request deleted successfully" });

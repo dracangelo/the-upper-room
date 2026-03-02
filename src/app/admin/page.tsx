@@ -177,9 +177,17 @@ export default function AdminDashboard() {
     );
   }
 
-  const stats = data?.overview || {
-    totalUsers: 0, newUsersToday: 0, totalPosts: 0, totalThreads: 0,
-    totalPrayers: 0, pendingReports: 0, pendingApprovals: 0,
+  const stats = {
+    totalUsers: data?.overview?.totalUsers ?? 0,
+    newUsersToday: data?.overview?.newUsersToday ?? 0,
+    totalPosts: data?.overview?.totalPosts ?? 0,
+    totalThreads: data?.overview?.totalThreads ?? 0,
+    totalPrayers: data?.overview?.totalPrayers ?? 0,
+    pendingReports: data?.overview?.pendingReports ?? 0,
+    pendingApprovals: data?.overview?.pendingApprovals ?? 0,
+    postsToday: data?.overview?.postsToday ?? 0,
+    prayerCount: data?.overview?.prayerCount ?? 0,
+    activeMissionaries: data?.overview?.activeMissionaries ?? 0,
   };
 
   const renderOverview = () => (

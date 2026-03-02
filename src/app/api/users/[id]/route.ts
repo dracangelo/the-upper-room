@@ -6,20 +6,18 @@ import { prisma } from "@/lib/db";
 // GET /api/users/[id] - Get user profile
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const user = await prisma.user.findUnique({
-      where: { id: params.id },
+      where: { id },
       select: {
         id: true,
         name: true,
         email: true,
         image: true,
         role: true,
-        bio: true,
-        location: true,
-        website: true,
         createdAt: true,
         _count: {
           select: {
@@ -46,24 +44,22 @@ export async function GET(
 // PUT /api/users/[id] - Update user profile
 export async function PUT(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const session = await getServerSession(authOptions);
-    if (!session || session.user.id !== params.id) {
+    if (!session || session.user.id !== id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const data = await request.json();
-    const { name, bio, location, website } = data;
+    const { name } = data;
 
     const user = await prisma.user.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         name,
-        bio,
-        location,
-        website,
       },
       select: {
         id: true,
@@ -71,9 +67,6 @@ export async function PUT(
         email: true,
         image: true,
         role: true,
-        bio: true,
-        location: true,
-        website: true,
         createdAt: true,
         _count: {
           select: {
