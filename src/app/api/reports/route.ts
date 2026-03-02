@@ -38,6 +38,24 @@ export async function POST(request: Request) {
       },
     });
 
+    // Emit admin notification for new report
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || ""}/api/socket`);
+      if (res.ok) {
+        const io = (global as any).io;
+        if (io) {
+          io.emit("admin-notification", {
+            type: "NEW_REPORT",
+            title: "New Content Report",
+            content: `A new ${contentType.toLowerCase()} has been reported`,
+            reportId: report.id,
+          });
+        }
+      }
+    } catch (err) {
+      console.error("Failed to emit admin notification:", err);
+    }
+
     return NextResponse.json(report);
   } catch (error) {
     console.error("Report creation error:", error);

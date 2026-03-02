@@ -50,8 +50,8 @@ export default function ForumPage() {
   const [stats, setStats] = useState({
     totalThreads: 0,
     totalPosts: 0,
-    totalMembers: 2456,
-    onlineNow: 89,
+    totalMembers: 0,
+    onlineNow: 0,
   });
 
   useEffect(() => {
@@ -242,15 +242,6 @@ export default function ForumPage() {
                 ))
               )}
             </div>
-
-            {/* Load More */}
-            {threads.length > 0 && (
-              <div className="text-center mt-8">
-                <button className="btn-secondary">
-                  Load More Threads
-                </button>
-              </div>
-            )}
           </div>
 
           {/* Sidebar */}

@@ -227,13 +227,6 @@ export default function TeachingPage() {
             </div>
           )}
         </div>
-
-        {/* Load More */}
-        <div className="text-center mt-12">
-          <button className="btn-secondary">
-            Load More Articles
-          </button>
-        </div>
       </div>
     </div>
   );

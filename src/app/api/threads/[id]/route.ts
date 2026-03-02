@@ -3,43 +3,51 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 
-// GET /api/posts/[id] - Get single post
+// GET /api/threads/[id] - Get single thread
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const post = await prisma.post.findUnique({
+    const thread = await prisma.thread.findUnique({
       where: { id: params.id },
       include: {
         author: {
           select: { id: true, name: true, image: true, role: true },
         },
         category: true,
-        scriptures: true,
-        reactions: {
+        _count: { select: { comments: true, reactions: true } },
+        comments: {
           include: {
-            user: { select: { id: true, name: true } },
+            author: { select: { id: true, name: true, image: true, role: true } },
+            _count: { select: { reactions: true } },
+            replies: {
+              include: {
+                author: { select: { id: true, name: true, image: true, role: true } },
+                _count: { select: { reactions: true } },
+              },
+            },
           },
+          orderBy: { createdAt: "asc" },
         },
       },
     });
 
-    if (!post) {
-      return NextResponse.json({ error: "Post not found" }, { status: 404 });
+    if (!thread) {
+      return NextResponse.json({ error: "Thread not found" }, { status: 404 });
     }
 
-    return NextResponse.json(post);
+    return NextResponse.json(thread);
   } catch (error) {
-    console.error("Error fetching post:", error);
+    console.error("Error fetching thread:", error);
     return NextResponse.json(
-      { error: "Failed to fetch post" },
+      { error: "Failed to fetch thread" },
       { status: 500 }
     );
   }
 }
 
-// PUT /api/posts/[id] - Update post
+// PUT /api/threads/[id] - Update thread
 export async function PUT(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -50,22 +58,22 @@ export async function PUT(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const post = await prisma.post.findUnique({
+    const thread = await prisma.thread.findUnique({
       where: { id: params.id },
       select: { authorId: true },
     });
 
-    if (!post) {
-      return NextResponse.json({ error: "Post not found" }, { status: 404 });
+    if (!thread) {
+      return NextResponse.json({ error: "Thread not found" }, { status: 404 });
     }
 
     // Check if user is the author or admin/moderator
-    if (post.authorId !== session.user.id && !["ADMIN", "MODERATOR"].includes(session.user.role)) {
+    if (thread.authorId !== session.user.id && !["ADMIN", "MODERATOR"].includes(session.user.role)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const data = await request.json();
-    const { title, content, excerpt, categoryId, published, scriptures } = data;
+    const { title, content, categoryId } = data;
 
     let slug;
     if (title) {
@@ -78,27 +86,10 @@ export async function PUT(
     const updateData: any = {};
     if (title) updateData.title = title;
     if (content) updateData.content = content;
-    if (excerpt) updateData.excerpt = excerpt;
     if (categoryId) updateData.categoryId = categoryId;
-    if (published !== undefined) updateData.published = published;
     if (slug) updateData.slug = slug;
 
-    if (scriptures) {
-      updateData.scriptures = {
-        deleteMany: {},
-        create: scriptures.map((ref: string) => {
-          const parts = ref.match(/(\d?\s?\w+)\s+(\d+):(\d+)/);
-          return {
-            reference: ref,
-            book: parts?.[1] || ref,
-            chapter: parseInt(parts?.[2] || "1"),
-            verse: parseInt(parts?.[3] || "1"),
-          };
-        }),
-      };
-    }
-
-    const updatedPost = await prisma.post.update({
+    const updatedThread = await prisma.thread.update({
       where: { id: params.id },
       data: updateData,
       include: {
@@ -106,21 +97,20 @@ export async function PUT(
           select: { id: true, name: true, image: true, role: true },
         },
         category: true,
-        scriptures: true,
       },
     });
 
-    return NextResponse.json(updatedPost);
+    return NextResponse.json(updatedThread);
   } catch (error) {
-    console.error("Error updating post:", error);
+    console.error("Error updating thread:", error);
     return NextResponse.json(
-      { error: "Failed to update post" },
+      { error: "Failed to update thread" },
       { status: 500 }
     );
   }
 }
 
-// DELETE /api/posts/[id] - Delete post
+// DELETE /api/threads/[id] - Delete thread
 export async function DELETE(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -131,29 +121,29 @@ export async function DELETE(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const post = await prisma.post.findUnique({
+    const thread = await prisma.thread.findUnique({
       where: { id: params.id },
       select: { authorId: true },
     });
 
-    if (!post) {
-      return NextResponse.json({ error: "Post not found" }, { status: 404 });
+    if (!thread) {
+      return NextResponse.json({ error: "Thread not found" }, { status: 404 });
     }
 
     // Check if user is the author or admin/moderator
-    if (post.authorId !== session.user.id && !["ADMIN", "MODERATOR"].includes(session.user.role)) {
+    if (thread.authorId !== session.user.id && !["ADMIN", "MODERATOR"].includes(session.user.role)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    await prisma.post.delete({
+    await prisma.thread.delete({
       where: { id: params.id },
     });
 
-    return NextResponse.json({ message: "Post deleted successfully" });
+    return NextResponse.json({ message: "Thread deleted successfully" });
   } catch (error) {
-    console.error("Error deleting post:", error);
+    console.error("Error deleting thread:", error);
     return NextResponse.json(
-      { error: "Failed to delete post" },
+      { error: "Failed to delete thread" },
       { status: 500 }
     );
   }

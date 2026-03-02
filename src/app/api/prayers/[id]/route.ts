@@ -1,11 +1,46 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 
+// GET /api/prayers/[id] - Get single prayer request
+export async function GET(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const prayer = await prisma.prayerRequest.findUnique({
+      where: { id: params.id },
+      include: {
+        author: {
+          select: { id: true, name: true, image: true, role: true },
+        },
+        _count: { select: { prayers: true } },
+        prayers: {
+          include: {
+            user: { select: { id: true, name: true } },
+          },
+        },
+      },
+    });
+
+    if (!prayer) {
+      return NextResponse.json({ error: "Prayer request not found" }, { status: 404 });
+    }
+
+    return NextResponse.json(prayer);
+  } catch (error) {
+    console.error("Error fetching prayer:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch prayer request" },
+      { status: 500 }
+    );
+  }
+}
+
 // POST /api/prayers/[id]/pray - User prays for this request
 export async function POST(
-  request: Request,
+  request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
@@ -69,9 +104,9 @@ export async function POST(
   }
 }
 
-// PUT /api/prayers/[id] - Update prayer request (mark answered, edit)
+// PUT /api/prayers/[id] - Update prayer request
 export async function PUT(
-  request: Request,
+  request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
@@ -80,23 +115,84 @@ export async function PUT(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const data = await request.json();
-    const { isAnswered } = data;
-
-    const prayer = await prisma.prayerRequest.update({
+    const prayer = await prisma.prayerRequest.findUnique({
       where: { id: params.id },
-      data: { isAnswered },
+      select: { authorId: true },
+    });
+
+    if (!prayer) {
+      return NextResponse.json({ error: "Prayer request not found" }, { status: 404 });
+    }
+
+    // Check if user is the author or admin/moderator
+    if (prayer.authorId !== session.user.id && !["ADMIN", "MODERATOR"].includes(session.user.role)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    const data = await request.json();
+    const { title, content, isAnswered, isAnonymous } = data;
+
+    const updateData: any = {};
+    if (title !== undefined) updateData.title = title;
+    if (content !== undefined) updateData.content = content;
+    if (isAnswered !== undefined) updateData.isAnswered = isAnswered;
+    if (isAnonymous !== undefined) updateData.isAnonymous = isAnonymous;
+
+    const updatedPrayer = await prisma.prayerRequest.update({
+      where: { id: params.id },
+      data: updateData,
       include: {
-        author: { select: { id: true, name: true } },
+        author: {
+          select: { id: true, name: true, image: true, role: true },
+        },
         _count: { select: { prayers: true } },
       },
     });
 
-    return NextResponse.json(prayer);
+    return NextResponse.json(updatedPrayer);
   } catch (error) {
     console.error("Error updating prayer:", error);
     return NextResponse.json(
-      { error: "Failed to update prayer" },
+      { error: "Failed to update prayer request" },
+      { status: 500 }
+    );
+  }
+}
+
+// DELETE /api/prayers/[id] - Delete prayer request
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const prayer = await prisma.prayerRequest.findUnique({
+      where: { id: params.id },
+      select: { authorId: true },
+    });
+
+    if (!prayer) {
+      return NextResponse.json({ error: "Prayer request not found" }, { status: 404 });
+    }
+
+    // Check if user is the author or admin/moderator
+    if (prayer.authorId !== session.user.id && !["ADMIN", "MODERATOR"].includes(session.user.role)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    await prisma.prayerRequest.delete({
+      where: { id: params.id },
+    });
+
+    return NextResponse.json({ message: "Prayer request deleted successfully" });
+  } catch (error) {
+    console.error("Error deleting prayer:", error);
+    return NextResponse.json(
+      { error: "Failed to delete prayer request" },
       { status: 500 }
     );
   }

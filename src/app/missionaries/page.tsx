@@ -66,7 +66,7 @@ export default function MissionariesPage() {
         setStats({
           totalMissionaries: data.length,
           countries: uniqueCountries.size,
-          totalPrayers: data.reduce((acc: number, m: Missionary) => acc + (m.updates?.length || 0) * 10, 1958),
+          totalPrayers: data.reduce((acc: number, m: Missionary) => acc + (m.updates?.length || 0) * 10, 0),
           activeUpdates: data.reduce((acc: number, m: Missionary) => acc + (m._count?.updates || 0), 0),
         });
       }

@@ -1,21 +1,27 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { 
-  MessageSquare, 
-  ArrowLeft, 
-  User, 
-  Clock, 
-  Pin, 
+import {
+  MessageSquare,
+  ArrowLeft,
+  User,
+  Clock,
+  Pin,
   Lock,
   Send,
   Flag,
   Heart,
-  Share2
+  Share2,
+  Edit2,
+  Trash2,
+  X,
+  Check,
+  MoreVertical
 } from "lucide-react";
 import { useSession } from "next-auth/react";
+import ReportModal from "@/components/ReportModal";
 
 interface Thread {
   id: string;
@@ -59,6 +65,7 @@ interface Comment {
 
 export default function ThreadPage() {
   const { slug } = useParams();
+  const router = useRouter();
   const { data: session } = useSession();
   const [thread, setThread] = useState<Thread | null>(null);
   const [comments, setComments] = useState<Comment[]>([]);
@@ -67,6 +74,18 @@ export default function ThreadPage() {
   const [submitting, setSubmitting] = useState(false);
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [replyContent, setReplyContent] = useState("");
+  const [reportModalOpen, setReportModalOpen] = useState(false);
+  const [reportTarget, setReportTarget] = useState<{ contentType: string; contentId: string } | null>(null);
+
+  // Edit states
+  const [editingThread, setEditingThread] = useState(false);
+  const [editThreadData, setEditThreadData] = useState({ title: "", content: "" });
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+  const [editCommentContent, setEditCommentContent] = useState("");
+
+  // Reaction states
+  const [threadReactions, setThreadReactions] = useState({ count: 0, userReacted: false });
+  const [commentReactions, setCommentReactions] = useState<Record<string, { count: number; userReacted: boolean }>>({});
 
   useEffect(() => {
     if (slug) {
@@ -95,10 +114,163 @@ export default function ThreadPage() {
       if (response.ok) {
         const data = await response.json();
         setComments(data);
+        // Initialize comment reactions
+        const reactions: Record<string, { count: number; userReacted: boolean }> = {};
+        data.forEach((comment: Comment) => {
+          reactions[comment.id] = {
+            count: comment._count?.reactions || 0,
+            userReacted: false
+          };
+        });
+        setCommentReactions(reactions);
       }
     } catch (error) {
       console.error("Error fetching comments:", error);
     }
+  };
+
+  // Thread edit/delete functions
+  const handleEditThread = () => {
+    if (!thread) return;
+    setEditThreadData({ title: thread.title, content: thread.content });
+    setEditingThread(true);
+  };
+
+  const handleSaveThread = async () => {
+    if (!thread) return;
+
+    try {
+      const response = await fetch(`/api/threads/${thread.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(editThreadData),
+      });
+
+      if (response.ok) {
+        const updatedThread = await response.json();
+        setThread(updatedThread);
+        setEditingThread(false);
+      }
+    } catch (error) {
+      console.error("Error updating thread:", error);
+    }
+  };
+
+  const handleDeleteThread = async () => {
+    if (!thread) return;
+
+    if (!confirm("Are you sure you want to delete this thread? This action cannot be undone.")) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/threads/${thread.id}`, {
+        method: "DELETE",
+      });
+
+      if (response.ok) {
+        router.push("/forum");
+      }
+    } catch (error) {
+      console.error("Error deleting thread:", error);
+    }
+  };
+
+  // Comment edit/delete functions
+  const handleEditComment = (commentId: string, content: string) => {
+    setEditingCommentId(commentId);
+    setEditCommentContent(content);
+  };
+
+  const handleSaveComment = async (commentId: string) => {
+    try {
+      const response = await fetch(`/api/comments/${commentId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: editCommentContent }),
+      });
+
+      if (response.ok) {
+        const updatedComment = await response.json();
+        setComments(comments.map(c =>
+          c.id === commentId ? { ...c, content: updatedComment.content } : c
+        ));
+        setEditingCommentId(null);
+        setEditCommentContent("");
+      }
+    } catch (error) {
+      console.error("Error updating comment:", error);
+    }
+  };
+
+  const handleDeleteComment = async (commentId: string) => {
+    if (!confirm("Are you sure you want to delete this comment?")) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/comments/${commentId}`, {
+        method: "DELETE",
+      });
+
+      if (response.ok) {
+        setComments(comments.filter(c => c.id !== commentId));
+      }
+    } catch (error) {
+      console.error("Error deleting comment:", error);
+    }
+  };
+
+  // Reaction functions
+  const handleThreadReaction = async () => {
+    if (!thread || !session) return;
+
+    try {
+      const response = await fetch("/api/reactions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "thread", contentId: thread.id }),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        setThreadReactions({
+          count: result.count,
+          userReacted: result.reacted
+        });
+      }
+    } catch (error) {
+      console.error("Error toggling reaction:", error);
+    }
+  };
+
+  const handleCommentReaction = async (commentId: string) => {
+    if (!session) return;
+
+    try {
+      const response = await fetch("/api/reactions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "comment", contentId: commentId }),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        setCommentReactions(prev => ({
+          ...prev,
+          [commentId]: {
+            count: result.count,
+            userReacted: result.reacted
+          }
+        }));
+      }
+    } catch (error) {
+      console.error("Error toggling reaction:", error);
+    }
+  };
+
+  const canEditContent = (authorId: string) => {
+    return session?.user?.id === authorId || ["ADMIN", "MODERATOR"].includes(session?.user?.role || "");
   };
 
   const handleSubmitComment = async (e: React.FormEvent) => {
@@ -148,6 +320,11 @@ export default function ThreadPage() {
     } catch (error) {
       console.error("Error posting reply:", error);
     }
+  };
+
+  const handleReport = (contentType: string, contentId: string) => {
+    setReportTarget({ contentType, contentId });
+    setReportModalOpen(true);
   };
 
   const formatDate = (dateString: string) => {
@@ -211,8 +388,51 @@ export default function ThreadPage() {
             {thread.isPinned && <Pin className="w-5 h-5 text-[#C9A227]" />}
             {thread.isLocked && <Lock className="w-5 h-5 text-gray-400" />}
             <span className="scripture-tag text-sm">{thread.category.name}</span>
+            {canEditContent(thread.author.id) && (
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={handleEditThread}
+                  className="text-gray-400 hover:text-[#C9A227] transition-colors"
+                  title="Edit Thread"
+                >
+                  <Edit2 className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={handleDeleteThread}
+                  className="text-gray-400 hover:text-red-500 transition-colors"
+                  title="Delete Thread"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            )}
           </div>
-          <h1 className="text-3xl md:text-4xl font-bold mb-4">{thread.title}</h1>
+          {editingThread ? (
+            <div className="flex items-center space-x-2 mb-4">
+              <input
+                type="text"
+                value={editThreadData.title}
+                onChange={(e) => setEditThreadData(prev => ({ ...prev, title: e.target.value }))}
+                className="flex-grow text-3xl md:text-4xl font-bold bg-transparent border-b-2 border-[#C9A227] text-white focus:outline-none px-2"
+              />
+              <button
+                onClick={handleSaveThread}
+                className="text-green-400 hover:text-green-300 transition-colors"
+                title="Save"
+              >
+                <Check className="w-5 h-5" />
+              </button>
+              <button
+                onClick={() => setEditingThread(false)}
+                className="text-red-400 hover:text-red-300 transition-colors"
+                title="Cancel"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+          ) : (
+            <h1 className="text-3xl md:text-4xl font-bold mb-4">{thread.title}</h1>
+          )}
           <div className="flex items-center space-x-4 text-sm text-gray-400">
             <span className="flex items-center">
               <User className="w-4 h-4 mr-1" />
@@ -254,19 +474,38 @@ export default function ThreadPage() {
                 </span>
                 <span className="text-sm text-gray-500">{formatDate(thread.createdAt)}</span>
               </div>
-              <div className="prose max-w-none text-gray-700 whitespace-pre-wrap">
-                {thread.content}
-              </div>
+              {editingThread ? (
+                <div className="mb-4">
+                  <textarea
+                    value={editThreadData.content}
+                    onChange={(e) => setEditThreadData(prev => ({ ...prev, content: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C9A227] focus:border-transparent resize-none"
+                    rows={6}
+                  />
+                </div>
+              ) : (
+                <div className="prose max-w-none text-gray-700 whitespace-pre-wrap">
+                  {thread.content}
+                </div>
+              )}
               <div className="flex items-center space-x-4 mt-4 pt-4 border-t">
-                <button className="flex items-center space-x-1 text-gray-500 hover:text-[#C9A227] transition-colors">
-                  <Heart className="w-4 h-4" />
-                  <span className="text-sm">Like</span>
+                <button
+                  onClick={handleThreadReaction}
+                  className={`flex items-center space-x-1 transition-colors ${
+                    threadReactions.userReacted ? "text-red-500 hover:text-red-600" : "text-gray-500 hover:text-[#C9A227]"
+                  }`}
+                >
+                  <Heart className={`w-4 h-4 ${threadReactions.userReacted ? "fill-current" : ""}`} />
+                  <span className="text-sm">{threadReactions.count}</span>
                 </button>
                 <button className="flex items-center space-x-1 text-gray-500 hover:text-[#C9A227] transition-colors">
                   <Share2 className="w-4 h-4" />
                   <span className="text-sm">Share</span>
                 </button>
-                <button className="flex items-center space-x-1 text-gray-500 hover:text-red-500 transition-colors">
+                <button 
+                  onClick={() => handleReport("THREAD", thread.id)}
+                  className="flex items-center space-x-1 text-gray-500 hover:text-red-500 transition-colors"
+                >
                   <Flag className="w-4 h-4" />
                   <span className="text-sm">Report</span>
                 </button>
@@ -349,14 +588,65 @@ export default function ThreadPage() {
                         {comment.author.role}
                       </span>
                       <span className="text-sm text-gray-500">{formatDate(comment.createdAt)}</span>
+                      {canEditContent(comment.author.id) && (
+                        <div className="flex items-center space-x-1">
+                          <button
+                            onClick={() => handleEditComment(comment.id, comment.content)}
+                            className="text-gray-400 hover:text-[#C9A227] transition-colors"
+                            title="Edit Comment"
+                          >
+                            <Edit2 className="w-3 h-3" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteComment(comment.id)}
+                            className="text-gray-400 hover:text-red-500 transition-colors"
+                            title="Delete Comment"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </div>
+                      )}
                     </div>
-                    <div className="text-gray-700 whitespace-pre-wrap mb-3">
-                      {comment.content}
-                    </div>
+                    {editingCommentId === comment.id ? (
+                      <div className="mb-3">
+                        <textarea
+                          value={editCommentContent}
+                          onChange={(e) => setEditCommentContent(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C9A227] focus:border-transparent resize-none"
+                          rows={3}
+                        />
+                        <div className="flex items-center space-x-2 mt-2">
+                          <button
+                            onClick={() => handleSaveComment(comment.id)}
+                            className="text-green-600 hover:text-green-700 transition-colors"
+                          >
+                            <Check className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => {
+                              setEditingCommentId(null);
+                              setEditCommentContent("");
+                            }}
+                            className="text-red-600 hover:text-red-700 transition-colors"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-gray-700 whitespace-pre-wrap mb-3">
+                        {comment.content}
+                      </div>
+                    )}
                     <div className="flex items-center space-x-4">
-                      <button className="flex items-center space-x-1 text-gray-500 hover:text-[#C9A227] transition-colors text-sm">
-                        <Heart className="w-4 h-4" />
-                        <span>Like</span>
+                      <button
+                        onClick={() => handleCommentReaction(comment.id)}
+                        className={`flex items-center space-x-1 transition-colors ${
+                          commentReactions[comment.id]?.userReacted ? "text-red-500 hover:text-red-600" : "text-gray-500 hover:text-[#C9A227]"
+                        }`}
+                      >
+                        <Heart className={`w-4 h-4 ${commentReactions[comment.id]?.userReacted ? "fill-current" : ""}`} />
+                        <span className="text-sm">{commentReactions[comment.id]?.count || 0}</span>
                       </button>
                       <button 
                         onClick={() => setReplyingTo(replyingTo === comment.id ? null : comment.id)}
@@ -365,7 +655,10 @@ export default function ThreadPage() {
                         <MessageSquare className="w-4 h-4" />
                         <span>Reply</span>
                       </button>
-                      <button className="flex items-center space-x-1 text-gray-500 hover:text-red-500 transition-colors text-sm">
+                      <button 
+                        onClick={() => handleReport("COMMENT", comment.id)}
+                        className="flex items-center space-x-1 text-gray-500 hover:text-red-500 transition-colors text-sm"
+                      >
                         <Flag className="w-4 h-4" />
                         <span>Report</span>
                       </button>
@@ -417,6 +710,19 @@ export default function ThreadPage() {
           </div>
         </div>
       </div>
+
+      {/* Report Modal */}
+      {reportTarget && (
+        <ReportModal
+          isOpen={reportModalOpen}
+          onClose={() => {
+            setReportModalOpen(false);
+            setReportTarget(null);
+          }}
+          contentType={reportTarget.contentType}
+          contentId={reportTarget.contentId}
+        />
+      )}
     </div>
   );
 }

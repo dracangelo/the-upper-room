@@ -27,7 +27,7 @@ export default function PrayerPage() {
     totalPrayers: 0,
     activeRequests: 0,
     answeredPrayers: 0,
-    prayingNow: 23,
+    prayingNow: 0,
   });
   const [activeTab, setActiveTab] = useState("all");
   const [prayedIds, setPrayedIds] = useState<Set<string>>(new Set());
