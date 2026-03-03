@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { ReactionType } from "@prisma/client";
 
 // POST /api/reactions - Add or remove reaction
 export async function POST(request: NextRequest) {
@@ -12,7 +13,7 @@ export async function POST(request: NextRequest) {
     }
 
     const data = await request.json();
-    const { type, contentId, reactionType = "like" } = data;
+    const { type, contentId, reactionType = "LIKE" } = data;
 
     // Validate input
     if (!type || !contentId) {
@@ -30,16 +31,27 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const validReactionTypes = ["LIKE", "HELPFUL", "PRAYED"];
+    if (!validReactionTypes.includes(reactionType)) {
+      return NextResponse.json(
+        { error: "Invalid reactionType. Must be one of: LIKE, HELPFUL, PRAYED" },
+        { status: 400 }
+      );
+    }
+
+    // Cast to ReactionType enum
+    const typedReactionType = reactionType as ReactionType;
+
     // Check if reaction already exists
     const existingReaction = await prisma.reaction.findFirst({
       where: {
         userId: session.user.id,
         [getTypeField(type)]: contentId,
-        type: reactionType,
+        type: typedReactionType,
       },
     });
 
-    let result;
+    let result: { reacted: boolean; reactionType: ReactionType; count: number };
 
     if (existingReaction) {
       // Remove reaction (toggle off)
@@ -47,12 +59,12 @@ export async function POST(request: NextRequest) {
         where: { id: existingReaction.id },
       });
 
-      result = { reacted: false, reactionType };
+      result = { reacted: false, reactionType: typedReactionType, count: 0 };
     } else {
       // Add reaction (toggle on)
       const reactionData: any = {
         userId: session.user.id,
-        type: reactionType,
+        type: typedReactionType,
       };
       reactionData[getTypeField(type)] = contentId;
 
@@ -60,11 +72,11 @@ export async function POST(request: NextRequest) {
         data: reactionData,
       });
 
-      result = { reacted: true, reactionType };
+      result = { reacted: true, reactionType: typedReactionType, count: 0 };
     }
 
     // Get updated reaction count
-    const reactionCount = await getReactionCount(type, contentId, reactionType);
+    const reactionCount = await getReactionCount(type, contentId, typedReactionType);
     result.count = reactionCount;
 
     return NextResponse.json(result);
@@ -83,7 +95,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const type = searchParams.get("type");
     const contentId = searchParams.get("contentId");
-    const reactionType = searchParams.get("reactionType") || "like";
+    const reactionType = searchParams.get("reactionType") || "LIKE";
 
     if (!type || !contentId) {
       return NextResponse.json(
@@ -100,6 +112,17 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const validReactionTypes = ["LIKE", "HELPFUL", "PRAYED"];
+    if (!validReactionTypes.includes(reactionType)) {
+      return NextResponse.json(
+        { error: "Invalid reactionType. Must be one of: LIKE, HELPFUL, PRAYED" },
+        { status: 400 }
+      );
+    }
+
+    // Cast to ReactionType enum
+    const typedReactionType = reactionType as ReactionType;
+
     const session = await getServerSession(authOptions);
     const userId = session?.user?.id;
 
@@ -107,7 +130,7 @@ export async function GET(request: NextRequest) {
     const reactions = await prisma.reaction.findMany({
       where: {
         [getTypeField(type)]: contentId,
-        type: reactionType,
+        type: typedReactionType,
       },
       include: {
         user: {
@@ -149,7 +172,7 @@ function getTypeField(type: string): string {
   }
 }
 
-async function getReactionCount(type: string, contentId: string, reactionType: string): Promise<number> {
+async function getReactionCount(type: string, contentId: string, reactionType: ReactionType): Promise<number> {
   const count = await prisma.reaction.count({
     where: {
       [getTypeField(type)]: contentId,
