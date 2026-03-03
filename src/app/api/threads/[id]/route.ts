@@ -10,8 +10,10 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const thread = await prisma.thread.findUnique({
-      where: { id },
+    
+    // Try to find by slug first, if not found try by id
+    let thread = await prisma.thread.findUnique({
+      where: { slug: id },
       include: {
         author: {
           select: { id: true, name: true, image: true, role: true },
@@ -33,6 +35,33 @@ export async function GET(
         },
       },
     });
+
+    // If not found by slug, try by id
+    if (!thread) {
+      thread = await prisma.thread.findUnique({
+        where: { id },
+        include: {
+          author: {
+            select: { id: true, name: true, image: true, role: true },
+          },
+          category: true,
+          _count: { select: { comments: true, reactions: true } },
+          comments: {
+            include: {
+              author: { select: { id: true, name: true, image: true, role: true } },
+              _count: { select: { reactions: true } },
+              replies: {
+                include: {
+                  author: { select: { id: true, name: true, image: true, role: true } },
+                  _count: { select: { reactions: true } },
+                },
+              },
+            },
+            orderBy: { createdAt: "asc" },
+          },
+        },
+      });
+    }
 
     if (!thread) {
       return NextResponse.json({ error: "Thread not found" }, { status: 404 });
@@ -60,10 +89,19 @@ export async function PUT(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const thread = await prisma.thread.findUnique({
-      where: { id },
+    // Try to find by slug first, if not found try by id
+    let thread = await prisma.thread.findUnique({
+      where: { slug: id },
       select: { authorId: true },
     });
+
+    // If not found by slug, try by id
+    if (!thread) {
+      thread = await prisma.thread.findUnique({
+        where: { id },
+        select: { authorId: true },
+      });
+    }
 
     if (!thread) {
       return NextResponse.json({ error: "Thread not found" }, { status: 404 });
@@ -91,8 +129,26 @@ export async function PUT(
     if (categoryId) updateData.categoryId = categoryId;
     if (slug) updateData.slug = slug;
 
+    // Get the actual thread ID (whether we found it by slug or id)
+    const actualThreadId = thread.authorId; // This is wrong, we need to get the thread ID
+
+    // Re-fetch the thread to get its actual ID
+    const threadWithId = await prisma.thread.findFirst({
+      where: {
+        OR: [
+          { slug: id },
+          { id: id }
+        ]
+      },
+      select: { id: true }
+    });
+
+    if (!threadWithId) {
+      return NextResponse.json({ error: "Thread not found" }, { status: 404 });
+    }
+
     const updatedThread = await prisma.thread.update({
-      where: { id },
+      where: { id: threadWithId.id },
       data: updateData,
       include: {
         author: {
@@ -124,10 +180,19 @@ export async function DELETE(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const thread = await prisma.thread.findUnique({
-      where: { id },
+    // Try to find by slug first, if not found try by id
+    let thread = await prisma.thread.findUnique({
+      where: { slug: id },
       select: { authorId: true },
     });
+
+    // If not found by slug, try by id
+    if (!thread) {
+      thread = await prisma.thread.findUnique({
+        where: { id },
+        select: { authorId: true },
+      });
+    }
 
     if (!thread) {
       return NextResponse.json({ error: "Thread not found" }, { status: 404 });
@@ -138,8 +203,23 @@ export async function DELETE(
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
+    // Re-fetch the thread to get its actual ID
+    const threadWithId = await prisma.thread.findFirst({
+      where: {
+        OR: [
+          { slug: id },
+          { id: id }
+        ]
+      },
+      select: { id: true }
+    });
+
+    if (!threadWithId) {
+      return NextResponse.json({ error: "Thread not found" }, { status: 404 });
+    }
+
     await prisma.thread.delete({
-      where: { id },
+      where: { id: threadWithId.id },
     });
 
     return NextResponse.json({ message: "Thread deleted successfully" });

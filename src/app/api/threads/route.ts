@@ -56,6 +56,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const data = await request.json();
+    const { title, content, categoryId } = data;
+
     // Check if user can post (7-day restriction for new users)
     const user = await prisma.user.findUnique({
       where: { id: session.user.id },
@@ -63,9 +66,8 @@ export async function POST(request: Request) {
 
     if (user && user.createdAt > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)) {
       // Check if posting to theology category
-      const data = await request.json();
       const category = await prisma.category.findUnique({
-        where: { id: data.categoryId },
+        where: { id: categoryId },
       });
 
       if (category?.name === "Theology Debates") {
@@ -75,9 +77,6 @@ export async function POST(request: Request) {
         );
       }
     }
-
-    const data = await request.json();
-    const { title, content, categoryId } = data;
 
     const slug = title
       .toLowerCase()

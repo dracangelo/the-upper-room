@@ -6,11 +6,28 @@ import { prisma } from "@/lib/db";
 // GET /api/threads/[id]/comments - Get comments for a thread
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
+
+    // First, find the thread by slug or id to get the actual thread ID
+    const thread = await prisma.thread.findFirst({
+      where: {
+        OR: [
+          { slug: id },
+          { id: id }
+        ]
+      },
+      select: { id: true }
+    });
+
+    if (!thread) {
+      return NextResponse.json({ error: "Thread not found" }, { status: 404 });
+    }
+
     const comments = await prisma.comment.findMany({
-      where: { threadId: params.id, parentId: null },
+      where: { threadId: thread.id, parentId: null },
       include: {
         author: {
           select: { id: true, name: true, image: true, role: true },
@@ -41,7 +58,7 @@ export async function GET(
 // POST /api/threads/[id]/comments - Add comment to thread
 export async function POST(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -49,13 +66,29 @@ export async function POST(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const { id } = await params;
     const data = await request.json();
     const { content, parentId } = data;
+
+    // First, find the thread by slug or id to get the actual thread ID
+    const thread = await prisma.thread.findFirst({
+      where: {
+        OR: [
+          { slug: id },
+          { id: id }
+        ]
+      },
+      select: { id: true }
+    });
+
+    if (!thread) {
+      return NextResponse.json({ error: "Thread not found" }, { status: 404 });
+    }
 
     const comment = await prisma.comment.create({
       data: {
         content,
-        threadId: params.id,
+        threadId: thread.id,
         authorId: session.user.id,
         parentId: parentId || null,
       },
