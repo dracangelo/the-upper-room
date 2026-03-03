@@ -272,7 +272,7 @@ export default function PrayerPage() {
         </div>
 
         {/* Daily Scripture */}
-        <div className="mt-12 card bg-gradient-to-r from-[#1E2A38] to-[#2d3d4f] text-white">
+        <div className="mt-12 bg-gradient-to-r from-[#1E2A38] to-[#2d3d4f] text-white rounded-lg shadow-lg p-6">
           <h3 className="text-lg font-semibold mb-4 text-[#C9A227]">Scripture for Today</h3>
           <blockquote className="text-xl italic leading-relaxed mb-4">
             "The prayer of a righteous person is powerful and effective. Elijah was a human being, even as we are. 

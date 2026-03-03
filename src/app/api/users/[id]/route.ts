@@ -18,6 +18,9 @@ export async function GET(
         email: true,
         image: true,
         role: true,
+        bio: true,
+        location: true,
+        website: true,
         createdAt: true,
         _count: {
           select: {
@@ -54,19 +57,26 @@ export async function PUT(
     }
 
     const data = await request.json();
-    const { name } = data;
+    const { name, bio, location, website } = data;
+
+    const updateData: any = {};
+    if (name !== undefined) updateData.name = name;
+    if (bio !== undefined) updateData.bio = bio;
+    if (location !== undefined) updateData.location = location;
+    if (website !== undefined) updateData.website = website;
 
     const user = await prisma.user.update({
       where: { id },
-      data: {
-        name,
-      },
+      data: updateData,
       select: {
         id: true,
         name: true,
         email: true,
         image: true,
         role: true,
+        bio: true,
+        location: true,
+        website: true,
         createdAt: true,
         _count: {
           select: {

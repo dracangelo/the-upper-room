@@ -14,13 +14,6 @@ export default withAuth(
       }
     }
 
-    // Missionary-only routes
-    if (pathname.startsWith("/missionaries/register")) {
-      if (!token || !["ADMIN", "MODERATOR", "MISSIONARY"].includes(token.role as string)) {
-        return NextResponse.redirect(new URL("/auth/signin", req.url));
-      }
-    }
-
     // Theology debate 7-day restriction
     if (pathname.startsWith("/forum/new") && pathname.includes("theology")) {
       if (token) {
@@ -68,6 +61,5 @@ export const config = {
     "/forum/new",
     "/prayer/new",
     "/teaching/new",
-    "/missionaries/register",
   ],
 };

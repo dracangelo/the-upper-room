@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 
 // GET /api/missionaries - Get all missionaries
@@ -34,6 +36,73 @@ export async function GET(request: Request) {
     console.error("Error fetching missionaries:", error);
     return NextResponse.json(
       { error: "Failed to fetch missionaries" },
+      { status: 500 }
+    );
+  }
+}
+
+// POST /api/missionaries - Create missionary (admin only)
+export async function POST(request: Request) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session || !["ADMIN", "MODERATOR"].includes(session.user.role || "")) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const data = await request.json();
+    const { userId, country, organization, ministryFocus, testimony, prayerNeeds, supportLink, isActive = true } = data;
+
+    // Validate required fields
+    if (!userId || !country || !ministryFocus || !prayerNeeds) {
+      return NextResponse.json(
+        { error: "Missing required fields: userId, country, ministryFocus, prayerNeeds" },
+        { status: 400 }
+      );
+    }
+
+    // Check if user is already a missionary
+    const existingMissionary = await prisma.missionary.findUnique({
+      where: { userId },
+    });
+
+    if (existingMissionary) {
+      return NextResponse.json(
+        { error: "User is already registered as a missionary" },
+        { status: 400 }
+      );
+    }
+
+    // Create missionary profile
+    const missionary = await prisma.missionary.create({
+      data: {
+        userId,
+        country,
+        organization: organization || null,
+        ministryFocus,
+        testimony: testimony || null,
+        prayerNeeds,
+        supportLink: supportLink || null,
+        isActive,
+      },
+      include: {
+        user: {
+          select: { id: true, name: true, email: true, image: true, role: true },
+        },
+      },
+    });
+
+    // Update user role to MISSIONARY
+    await prisma.user.update({
+      where: { id: userId },
+      data: { role: "MISSIONARY" },
+    });
+
+    return NextResponse.json(missionary, { status: 201 });
+
+  } catch (error) {
+    console.error("Error creating missionary:", error);
+    return NextResponse.json(
+      { error: "Failed to create missionary" },
       { status: 500 }
     );
   }
