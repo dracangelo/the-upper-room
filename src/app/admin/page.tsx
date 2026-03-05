@@ -185,9 +185,6 @@ export default function AdminDashboard() {
     totalPrayers: data?.overview?.totalPrayers ?? 0,
     pendingReports: data?.overview?.pendingReports ?? 0,
     pendingApprovals: data?.overview?.pendingApprovals ?? 0,
-    postsToday: data?.overview?.postsToday ?? 0,
-    prayerCount: data?.overview?.prayerCount ?? 0,
-    activeMissionaries: data?.overview?.activeMissionaries ?? 0,
   };
 
   const renderOverview = () => (
@@ -204,17 +201,16 @@ export default function AdminDashboard() {
           <MessageSquare className="w-8 h-8 mb-2" />
           <div className="text-2xl font-bold">{stats.totalPosts.toLocaleString()}</div>
           <div className="text-sm opacity-90">Total Posts</div>
-          <div className="text-xs mt-1 opacity-75">+{stats.postsToday} today</div>
         </div>
         <div className="card bg-gradient-to-br from-purple-500 to-purple-600 text-white">
           <Heart className="w-8 h-8 mb-2" />
-          <div className="text-2xl font-bold">{stats.prayerCount.toLocaleString()}</div>
+          <div className="text-2xl font-bold">{stats.totalPrayers.toLocaleString()}</div>
           <div className="text-sm opacity-90">Prayers Offered</div>
         </div>
         <div className="card bg-gradient-to-br from-[#4A6741] to-[#5a7d51] text-white">
           <Globe className="w-8 h-8 mb-2" />
-          <div className="text-2xl font-bold">{stats.activeMissionaries}</div>
-          <div className="text-sm opacity-90">Active Missionaries</div>
+          <div className="text-2xl font-bold">{stats.pendingReports}</div>
+          <div className="text-sm opacity-90">Pending Reports</div>
         </div>
       </div>
 

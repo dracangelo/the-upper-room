@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
         name,
         email,
         password: hashedPassword,
-        role: Role.USER,
+        role: Role.MEMBER,
         isApproved: false, // Require admin approval
       },
       select: {

@@ -6,7 +6,7 @@ import { prisma } from "@/lib/db";
 // PATCH /api/reports/[id]/resolve - Resolve or dismiss a report
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -14,7 +14,7 @@ export async function PATCH(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const reportId = params.id;
+    const { id: reportId } = await params;
     const body = await req.json();
     const { status, resolutionNote } = body;
 
@@ -38,9 +38,6 @@ export async function PATCH(
       where: { id: reportId },
       data: {
         status,
-        resolvedAt: status === "RESOLVED" || status === "DISMISSED" ? new Date() : null,
-        resolvedBy: status === "RESOLVED" || status === "DISMISSED" ? session.user.id : null,
-        resolutionNote: resolutionNote || null,
       },
       include: {
         reporter: { select: { name: true, email: true } },
@@ -64,7 +61,7 @@ export async function PATCH(
 // GET /api/reports/[id]/resolve - Get report details for resolution
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -72,7 +69,7 @@ export async function GET(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const reportId = params.id;
+    const { id: reportId } = await params;
 
     const report = await prisma.report.findUnique({
       where: { id: reportId },

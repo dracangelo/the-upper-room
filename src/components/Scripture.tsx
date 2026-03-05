@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, ReactNode } from "react";
+import { useState, useEffect, useRef, ReactNode, JSX } from "react";
 
 // Sample Bible verses database (in production, this would be a full API)
 const bibleVerses: Record<string, { text: string; translation: string }> = {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { Suspense, useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Search, BookOpen, MessageSquare, Heart, User, Globe, Filter } from "lucide-react";
@@ -59,7 +59,7 @@ const tabs = [
   { id: "missionaries", label: "Missionaries", icon: Globe },
 ];
 
-export default function SearchPage() {
+function SearchForm() {
   const searchParams = useSearchParams();
   const initialQuery = searchParams.get("q") || "";
   
@@ -340,5 +340,13 @@ export default function SearchPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function SearchPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <SearchForm />
+    </Suspense>
   );
 }

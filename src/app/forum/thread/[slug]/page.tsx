@@ -75,7 +75,7 @@ export default function ThreadPage() {
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [replyContent, setReplyContent] = useState("");
   const [reportModalOpen, setReportModalOpen] = useState(false);
-  const [reportTarget, setReportTarget] = useState<{ contentType: string; contentId: string } | null>(null);
+  const [reportTarget, setReportTarget] = useState<{ contentType: "post" | "thread" | "comment" | "user"; contentId: string } | null>(null);
 
   // Edit states
   const [editingThread, setEditingThread] = useState(false);
@@ -322,7 +322,7 @@ export default function ThreadPage() {
     }
   };
 
-  const handleReport = (contentType: string, contentId: string) => {
+  const handleReport = (contentType: "post" | "thread" | "comment" | "user", contentId: string) => {
     setReportTarget({ contentType, contentId });
     setReportModalOpen(true);
   };
@@ -503,7 +503,7 @@ export default function ThreadPage() {
                   <span className="text-sm">Share</span>
                 </button>
                 <button 
-                  onClick={() => handleReport("THREAD", thread.id)}
+                  onClick={() => handleReport("thread", thread.id)}
                   className="flex items-center space-x-1 text-gray-500 hover:text-red-500 transition-colors"
                 >
                   <Flag className="w-4 h-4" />
@@ -656,7 +656,7 @@ export default function ThreadPage() {
                         <span>Reply</span>
                       </button>
                       <button 
-                        onClick={() => handleReport("COMMENT", comment.id)}
+                        onClick={() => handleReport("comment", comment.id)}
                         className="flex items-center space-x-1 text-gray-500 hover:text-red-500 transition-colors text-sm"
                       >
                         <Flag className="w-4 h-4" />
@@ -714,13 +714,13 @@ export default function ThreadPage() {
       {/* Report Modal */}
       {reportTarget && (
         <ReportModal
-          isOpen={reportModalOpen}
           onClose={() => {
             setReportModalOpen(false);
             setReportTarget(null);
           }}
           contentType={reportTarget.contentType}
           contentId={reportTarget.contentId}
+          onSubmit={() => setReportModalOpen(false)}
         />
       )}
     </div>
