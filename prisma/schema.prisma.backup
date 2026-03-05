@@ -1,0 +1,294 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String  @map("user_id")
+  type              String
+  provider          String
+  providerAccountId String  @map("provider_account_id")
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique @map("session_token")
+  userId       String   @map("user_id")
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime? @map("email_verified")
+  image         String?
+  password      String?
+  role          Role      @default(MEMBER)
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  reputation    Int       @default(0)
+  isApproved    Boolean   @default(false) @map("is_approved")
+  
+  accounts      Account[]
+  sessions      Session[]
+  posts         Post[]
+  threads       Thread[]
+  comments      Comment[]
+  prayerRequests PrayerRequest[]
+  prayers       Prayer[]
+  reactions     Reaction[]
+  reports       Report[]
+  missionary    Missionary?
+  moderationLogs ModerationLog[]
+
+  @@map("users")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+model Post {
+  id          String   @id @default(cuid())
+  title       String
+  content     String   @db.Text
+  excerpt     String?
+  slug        String   @unique
+  published   Boolean  @default(false)
+  featured    Boolean  @default(false)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  authorId    String   @map("author_id")
+  categoryId  String   @map("category_id")
+  
+  author      User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  category    Category @relation(fields: [categoryId], references: [id])
+  scriptures  ScriptureReference[]
+  reactions   Reaction[]
+
+  @@map("posts")
+}
+
+model Category {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  slug        String   @unique
+  description String?
+  type        ContentType @default(BLOG)
+  createdAt   DateTime @default(now()) @map("created_at")
+  
+  posts       Post[]
+  threads     Thread[]
+
+  @@map("categories")
+}
+
+model Thread {
+  id          String   @id @default(cuid())
+  title       String
+  content     String   @db.Text
+  slug        String   @unique
+  isPinned    Boolean  @default(false) @map("is_pinned")
+  isLocked    Boolean  @default(false) @map("is_locked")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  authorId    String   @map("author_id")
+  categoryId  String   @map("category_id")
+  
+  author      User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  category    Category @relation(fields: [categoryId], references: [id])
+  comments    Comment[]
+  reactions   Reaction[]
+
+  @@map("threads")
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  content   String   @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  authorId  String   @map("author_id")
+  threadId  String   @map("thread_id")
+  parentId  String?  @map("parent_id")
+  
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  thread    Thread   @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  parent    Comment? @relation("CommentReplies", fields: [parentId], references: [id])
+  replies   Comment[] @relation("CommentReplies")
+  reactions Reaction[]
+  reports   Report[]
+
+  @@map("comments")
+}
+
+model PrayerRequest {
+  id          String   @id @default(cuid())
+  title       String
+  content     String   @db.Text
+  isAnonymous Boolean  @default(false) @map("is_anonymous")
+  isAnswered  Boolean  @default(false) @map("is_answered")
+  prayerCount Int      @default(0) @map("prayer_count")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  authorId    String   @map("author_id")
+  
+  author      User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  prayers     Prayer[]
+
+  @@map("prayer_requests")
+}
+
+model Prayer {
+  id              String        @id @default(cuid())
+  createdAt       DateTime      @default(now()) @map("created_at")
+  userId          String        @map("user_id")
+  prayerRequestId String        @map("prayer_request_id")
+  
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  prayerRequest   PrayerRequest @relation(fields: [prayerRequestId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, prayerRequestId])
+  @@map("prayers")
+}
+
+model Missionary {
+  id           String   @id @default(cuid())
+  userId       String   @unique @map("user_id")
+  country      String
+  organization String?
+  ministryFocus String  @map("ministry_focus") @db.Text
+  testimony    String?  @db.Text
+  prayerNeeds  String?  @map("prayer_needs") @db.Text
+  supportLink  String?  @map("support_link")
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  updates      MissionaryUpdate[]
+
+  @@map("missionaries")
+}
+
+model MissionaryUpdate {
+  id           String   @id @default(cuid())
+  title        String
+  content      String   @db.Text
+  createdAt    DateTime @default(now()) @map("created_at")
+  missionaryId String   @map("missionary_id")
+  
+  missionary   Missionary @relation(fields: [missionaryId], references: [id], onDelete: Cascade)
+
+  @@map("missionary_updates")
+}
+
+model ScriptureReference {
+  id        String   @id @default(cuid())
+  reference String   // e.g., "John 3:16"
+  book      String   // e.g., "John"
+  chapter   Int
+  verse     Int
+  postId    String?  @map("post_id")
+  
+  post      Post?    @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@map("scripture_references")
+}
+
+model Reaction {
+  id        String       @id @default(cuid())
+  type      ReactionType
+  createdAt DateTime     @default(now()) @map("created_at")
+  userId    String       @map("user_id")
+  postId    String?      @map("post_id")
+  threadId  String?      @map("thread_id")
+  commentId String?      @map("comment_id")
+  
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post      Post?        @relation(fields: [postId], references: [id], onDelete: Cascade)
+  thread    Thread?      @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  comment   Comment?     @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, postId, threadId, commentId])
+  @@map("reactions")
+}
+
+model Report {
+  id          String     @id @default(cuid())
+  reason      String     @db.Text
+  status      ReportStatus @default(PENDING)
+  createdAt   DateTime   @default(now()) @map("created_at")
+  reporterId  String     @map("reporter_id")
+  commentId   String?    @map("comment_id")
+  
+  reporter    User       @relation(fields: [reporterId], references: [id], onDelete: Cascade)
+  comment     Comment?   @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  @@map("reports")
+}
+
+model ModerationLog {
+  id          String   @id @default(cuid())
+  action      String
+  details     String?  @db.Text
+  createdAt   DateTime @default(now()) @map("created_at")
+  moderatorId String   @map("moderator_id")
+  targetUserId String? @map("target_user_id")
+  
+  moderator   User     @relation(fields: [moderatorId], references: [id], onDelete: Cascade)
+
+  @@map("moderation_logs")
+}
+
+enum Role {
+  ADMIN
+  MODERATOR
+  MISSIONARY
+  PASTOR
+  MEMBER
+}
+
+enum ContentType {
+  BLOG
+  FORUM
+}
+
+enum ReactionType {
+  LIKE
+  HELPFUL
+  PRAYED
+}
+
+enum ReportStatus {
+  PENDING
+  REVIEWED
+  RESOLVED
+  DISMISSED
+}
